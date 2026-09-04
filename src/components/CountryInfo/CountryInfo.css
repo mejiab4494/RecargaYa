@@ -1,0 +1,87 @@
+.country-info {
+    max-width: 480px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+}
+
+.country-details h2 {
+    margin-bottom: 0.25rem;
+}
+
+.country-details > p {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+}
+
+.topoff-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.form-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.form-group input,
+.form-group select {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #fff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.topoff-form button[type="submit"] {
+    margin-top: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.topoff-form button[type="submit"]:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.topoff-form button[type="submit"]:disabled {
+    background: #93c5fd;
+    cursor: not-allowed;
+}
+
+.form-success {
+    color: #15803d;
+    font-size: 0.9rem;
+    margin-top: -0.5rem;
+}
+
+.form-error {
+    color: #dc2626;
+    font-size: 0.9rem;
+    margin-top: -0.5rem;
+}
