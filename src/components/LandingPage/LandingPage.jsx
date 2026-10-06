@@ -1,18 +1,10 @@
 import "./LandingPage.css";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import countriesData from "world-countries";
-
-const countries = countriesData
-  .map((c) => ({
-    code: c.cca2,
-    name: c.name.common,
-  }))
-  .sort((a, b) => a.name.localeCompare(b.name));
+import { countries } from "../../data/countries";
 
 export default function LandingPage() {
   const [query, setQuery] = useState("");
-  const [selectedCode, setSelectedCode] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
   const navigate = useNavigate();
@@ -26,15 +18,12 @@ export default function LandingPage() {
 
   function handleInputChange(e) {
     setQuery(e.target.value);
-    setSelectedCode("");
     setIsOpen(true);
   }
 
   function handleSelect(country) {
-    setQuery(country.name);
-    setSelectedCode(country.code);
     setIsOpen(false);
-    navigate("/country-info", { state: { country } });
+    navigate(`/recargas/${country.code}`, { state: { country } }); // sends to Recargas component
   }
 
   useEffect(() => {
@@ -47,34 +36,48 @@ export default function LandingPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+
   return (
-    <div className="landing-page">
-      <h1>Bienvenido a RecargaYa</h1>
-      <p>Manda recargas a tu familia y amigos en todo el mundo.</p>
+    <div className="landing">
+      <div className="landingContent">
+        <div className="landingCard">
+          <h1>Bienvenido a RecargaYa</h1>
+          <p>Manda recargas a tu familia y amigos en todo el mundo.</p>
 
-      <div className="country-select" ref={wrapperRef}>
-        <span>Pais:</span>
-        <input
-          type="text"
-          value={query}
-          onChange={handleInputChange}
-          onFocus={() => setIsOpen(true)}
-          placeholder="e.g., El Salvador"
-          autoComplete="off"
-        />
+          <div className="country-select" ref={wrapperRef}>
+            <input
+              type="text"
+              value={query}
+              onChange={handleInputChange}
+              onFocus={() => setIsOpen(true)}
+              placeholder="Buscar Pais"
+              autoComplete="off"
+            />
 
-        {isOpen && filteredCountries.length > 0 && (
-          <ul className="country-dropdown">
-            {filteredCountries.map((c) => (
-              <li key={c.code} onClick={() => handleSelect(c)}>
-                {c.name}
-              </li>
-            ))}
-          </ul>
-        )}
+            {isOpen && filteredCountries.length > 0 && (
+              <ul className="country-dropdown">
+                {filteredCountries.map((c) => (
+                  <li key={c.code} onClick={() => handleSelect(c)}>
+                    {c.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="features">
+              <h2>Características</h2>
+              <ul>
+                <li>Envío rápido y seguro</li>
+                <li>Manda recargas a 160+ países</li>
+                <li>Interfaz intuitiva y fácil de usar</li>
+                <li>Mantente conectado con tu familia y amigos</li>
+              </ul>
+          </div>
+        </div>
+        <div className="landingIllustration">
+            <img src="./img/world-connected.svg" alt="Hero" />
+        </div>
       </div>
-
-      {selectedCode && <p>Selected code: {selectedCode}</p>}
-    </div>
+   </div>
   );
 }

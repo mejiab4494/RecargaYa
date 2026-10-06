@@ -1,6 +1,43 @@
-.landing-page {
-  max-width: 500px;
-  margin: 4rem auto;
+.landing {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+  min-height: 100vh;        /* was height: 100vh */
+  margin: 0;                /* was 4rem auto */
+  padding: 2rem 1.5rem;     /* breathing room now lives inside the colored area */
+  box-sizing: border-box;   /* padding no longer adds to the 100vh */
+  background-color: #599de0;
+}
+
+.landingContent {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+  width: 1700px;           /* prevents content from overflowing */
+}
+
+.landingIllustration {
+  flex: 1;                    /* image takes the remaining space */
+  min-width: 0;
+}
+
+.landingIllustration img {
+  display: block;
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.landingCard {
+  flex: 0 0 500px; 
+  margin-left: 2.5rem;           
+  max-width: 100%;
   padding: 2.5rem;
   background-color: #ffffff;
   border-radius: 16px;
@@ -8,33 +45,36 @@
   text-align: center;
 }
 
-.landing-page h1 {
-  font-size: 1.75rem;
-  color: #1e293b;
+.landingCard h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
   margin-bottom: 0.75rem;
 }
 
-.landing-page p {
+.landingCard p {
   color: #64748b;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
   margin-bottom: 2rem;
-  line-height: 1.5;
 }
 
-.landing-page label {
+.landingCard label {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   text-align: left;
 }
 
-.landing-page label span {
+.landingCard label span {
   font-size: 0.9rem;
   font-weight: 600;
   color: #334155;
 }
 
-.landing-page input[type="text"] {
+.landingCard input[type="text"] {
   padding: 0.75rem 1rem;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -44,12 +84,12 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.landing-page input[type="text"]:focus {
+.landingCard input[type="text"]:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-.landing-page input[type="text"]::placeholder {
+.landingCard input[type="text"]::placeholder {
   color: #94a3b8;
 }
 
@@ -109,4 +149,95 @@
 
 .country-dropdown li:hover {
   background-color: #f1f5f9;
+}
+
+.features {
+  margin-top: 3rem;
+  text-align: left;
+}
+
+.features ul {
+  list-style: none;
+  padding: 0;
+}
+
+.features h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 1rem;
+}
+
+.features li {
+  font-size: 0.95rem;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.features li::before {
+  content: "✓";
+  color: #22c55e;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+
+/* ---------- Tablet and below: stack the layout ---------- */
+@media (max-width: 900px) {
+  .landing {
+    flex-direction: column;
+    gap: 2rem;
+    margin: 2rem auto;
+  }
+
+  .landingCard {
+    flex: none;          
+    width: 100%;
+    max-width: 500px;    /* keeps it from looking stretched on tablets */
+  }
+
+  .landingIllustration {
+    flex: none;
+    width: 100%;
+  }
+
+  .landingIllustration img {
+    max-width: 450px;
+  }
+}
+
+/* ---------- Phones ---------- */
+@media (max-width: 480px) {
+  .landing {
+    margin: 1rem auto;
+    padding: 0 1rem;
+    gap: 1.5rem;
+  }
+
+  .landingCard {
+    padding: 1.5rem;
+    border-radius: 12px;
+  }
+
+  .landingCard h1 {
+    font-size: 1.6rem;
+  }
+
+  .landingCard p {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .features {
+    margin-top: 2rem;
+  }
+
+  .country-dropdown {
+    max-height: 180px;   /* leaves room when the keyboard is open */
+  }
+
+  .landingIllustration img {
+    max-width: 280px;
+  }
 }

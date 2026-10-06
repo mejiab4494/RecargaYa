@@ -1,19 +1,23 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Header from './components/Header/Header.jsx'
+import Footer from './components/Footer/footer.jsx'
 import LandingPage from './components/LandingPage/LandingPage.jsx'
-import CountryInfo from './components/CountryInfo/CountryInfo.jsx'
+import Recargas from './components/Recargas/Recargas.jsx'
+import './App.css'
 
 function App() {
   return (
     <BrowserRouter>
       <div className="app">
         <Header />
-        <LandingPage />
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/landing" element={<LandingPage />} />
-          <Route path="/country-info" element={<CountryInfo />} />
+          <Route path="/recargas" element={<Recargas />} />
+          <Route path="/recargas/:code" element={<Recargas />} />
         </Routes>
       </div>
+      <Footer />
     </BrowserRouter>
   )
 }
