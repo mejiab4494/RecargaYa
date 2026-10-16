@@ -1,0 +1,33 @@
+.payment-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.payment-divider {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+.pay-btn {
+    padding: 0.75rem 1rem;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.pay-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.pay-btn:disabled {
+    background: #93c5fd;
+    cursor: not-allowed;
+}

@@ -3,6 +3,7 @@ import Header from './components/Header/Header.jsx'
 import Footer from './components/Footer/footer.jsx'
 import LandingPage from './components/LandingPage/LandingPage.jsx'
 import Recargas from './components/Recargas/Recargas.jsx'
+import CountryInfo from './components/CountryInfo/CountryInfo.jsx'
 import './App.css'
 
 function App() {
@@ -14,7 +15,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/landing" element={<LandingPage />} />
           <Route path="/recargas" element={<Recargas />} />
-          <Route path="/recargas/:code" element={<Recargas />} />
+          <Route path="/recargas/:code" element={<CountryInfo />} />
         </Routes>
       </div>
       <Footer />

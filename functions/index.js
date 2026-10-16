@@ -2,19 +2,19 @@ const {setGlobalOptions} = require("firebase-functions");
 const {onRequest} = require("firebase-functions/https");
 const {defineSecret} = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
+const admin = require("firebase-admin");
+const Stripe = require("stripe");
 
+admin.initializeApp();
 setGlobalOptions({maxInstances: 10});
 
 const dtoneKey = defineSecret("DTONE_API_KEY");
 const dtoneSecret = defineSecret("DTONE_API_SECRET");
+const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
+const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 
-const CALLING_CODES = {
-  SV: "+503", // El Salvador
-  GT: "+502", // Guatemala
-  HN: "+504", // Honduras
-  NI: "+505", // Nicaragua
-  MX: "+52", // Mexico
-};
+// Switch to DT One's production host when you go live
+const DTONE_BASE_URL = "https://preprod-dvs-api.dtone.com/v1";
 
 const ISO_ALPHA2_TO_ALPHA3 = {
   SV: "SLV", // El Salvador
@@ -35,58 +35,150 @@ function getDtoneAuthHeader() {
   return `Basic ${credentials}`;
 }
 
-exports.requestTopoff = onRequest(
-    {secrets: [dtoneKey, dtoneSecret], cors: true},
+/**
+ * Fetches one product from DT One by id.
+ * @param {string} productId The DT One product id.
+ * @return {Promise<Object|null>} The product, or null if not found.
+ */
+async function getProduct(productId) {
+  const res = await fetch(`${DTONE_BASE_URL}/products/${productId}`, {
+    headers: {Authorization: getDtoneAuthHeader()},
+  });
+  if (!res.ok) {
+    logger.error("DT One product lookup failed", {status: res.status});
+    return null;
+  }
+  return res.json();
+}
+
+/**
+ * Sends the top-up to DT One. Only called after a successful payment.
+ * @param {Object} params The top-up details.
+ * @param {string} params.externalId Unique id (the Stripe payment id).
+ * @param {string} params.productId The DT One product id.
+ * @param {string} params.phoneNumber Recipient number in +international form.
+ * @return {Promise<string>} The DT One transaction id.
+ */
+async function sendTopOff({externalId, productId, phoneNumber}) {
+  const topupRes = await fetch(`${DTONE_BASE_URL}/async/transactions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": getDtoneAuthHeader(),
+    },
+    body: JSON.stringify({
+      external_id: externalId,
+      product_id: productId,
+      credit_party_identifier: {mobile_number: phoneNumber},
+      auto_confirm: true,
+    }),
+  });
+
+  const result = await topupRes.json();
+
+  if (!topupRes.ok) {
+    logger.error("DT One topup failed", result);
+    throw new Error(result.message || "Top-up failed");
+  }
+  return result.id || result.transaction_id;
+}
+
+exports.createPaymentIntent = onRequest(
+    {secrets: [stripeSecret, dtoneKey, dtoneSecret], cors: true},
     async (req, res) => {
       if (req.method !== "POST") {
         return res.status(405).json({error: "Method not allowed"});
       }
 
-      const {productId, phoneNumber, countryCode} = req.body;
+      const {
+        productId, countryCode, phoneNumber, senderName, senderEmail,
+      } = req.body || {};
 
-      if (!productId || !phoneNumber || !countryCode) {
-        return res.status(400).json({error: "Missing required fields"});
+      if (!productId || !countryCode || !senderEmail ||
+          !/^\+\d{8,15}$/.test(phoneNumber || "")) {
+        return res.status(400).json({error: "Invalid or missing fields"});
       }
-
-
-      const callingCode = CALLING_CODES[countryCode] || "";
-      const fullPhoneNumber = phoneNumber.startsWith("+") ?
-        phoneNumber :
-        `${callingCode}${phoneNumber}`;
 
       try {
-        const topupRes = await fetch("https://preprod-dvs-api.dtone.com/v1/async/transactions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": getDtoneAuthHeader(),
-          },
-          body: JSON.stringify({
-            external_id: `topoff-${Date.now()}`,
-            product_id: productId,
-            credit_party_identifier: {
-              mobile_number: fullPhoneNumber,
-            },
-            auto_confirm: true,
-          }),
-        });
+        // The price comes from DT One, never from the browser
+        const product = await getProduct(productId);
+        const retail = product && product.prices && product.prices.retail;
 
-        const result = await topupRes.json();
-
-        if (!topupRes.ok) {
-          logger.error("DT One topup failed", result);
-          return res.status(topupRes.status).json({
-            error: result.message || "Top-off failed"});
+        if (!retail || retail.unit !== "USD") {
+          return res.status(400).json({error: "Product not available"});
         }
 
-        return res.json({
-          success: true,
-          transactionId: result.id || result.transaction_id,
+        const stripe = new Stripe(stripeSecret.value());
+        const intent = await stripe.paymentIntents.create({
+          amount: Math.round(retail.amount * 100),
+          currency: "usd",
+          automatic_payment_methods: {enabled: true},
+          receipt_email: senderEmail,
+          metadata: {
+            productId: String(productId),
+            countryCode,
+            phoneNumber,
+            senderName: senderName || "",
+            senderEmail,
+          },
         });
+
+        return res.json({clientSecret: intent.client_secret});
       } catch (err) {
-        logger.error("Topoff error:", err);
+        logger.error("createPaymentIntent error:", err);
         return res.status(500).json({error: "Server error"});
       }
+    },
+);
+
+exports.stripeWebhook = onRequest(
+    {secrets: [stripeSecret, stripeWebhookSecret, dtoneKey, dtoneSecret]},
+    async (req, res) => {
+      const stripe = new Stripe(stripeSecret.value());
+
+      let event;
+      try {
+        event = stripe.webhooks.constructEvent(
+            req.rawBody,
+            req.headers["stripe-signature"],
+            stripeWebhookSecret.value(),
+        );
+      } catch (err) {
+        logger.error("Invalid Stripe signature", err);
+        return res.status(400).send("Invalid signature");
+      }
+
+      if (event.type === "payment_intent.succeeded") {
+        const intent = event.data.object;
+        const order = admin.firestore().collection("orders").doc(intent.id);
+
+        // Stripe can deliver an event more than once; create() fails if the
+        // document already exists, so each payment is fulfilled only once.
+        try {
+          await order.create({
+            ...intent.metadata,
+            status: "paid",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } catch (err) {
+          return res.sendStatus(200);
+        }
+
+        try {
+          const transactionId = await sendTopOff({
+            externalId: `topoff-${intent.id}`,
+            productId: intent.metadata.productId,
+            phoneNumber: intent.metadata.phoneNumber,
+          });
+          await order.update({status: "submitted", transactionId});
+        } catch (err) {
+          logger.error("Top-up failed, refunding", err);
+          await stripe.refunds.create({payment_intent: intent.id});
+          await order.update({status: "refunded"});
+        }
+      }
+
+      return res.sendStatus(200);
     },
 );
 
@@ -103,18 +195,24 @@ exports.lookupProducts = onRequest(
 
       try {
         const productsRes = await fetch(
-            `https://preprod-dvs-api.dtone.com/v1/products?country_iso_code=${alpha3Code}`,
+            `${DTONE_BASE_URL}/products?country_iso_code=${alpha3Code}`,
             {headers: {Authorization: getDtoneAuthHeader()}},
         );
 
         const rawText = await productsRes.text();
-        logger.info("DT One raw response", {
-          status: productsRes.status,
-          body: rawText,
-        });
+        logger.info("DT One products response", {status: productsRes.status});
 
         const data = rawText ? JSON.parse(rawText) : null;
-        return res.json(data);
+
+        // Never send wholesale cost, rates or source amounts to the browser
+        const safe = Array.isArray(data) ?
+          data.map(({prices, rates, source, ...rest}) => ({
+            ...rest,
+            prices: {retail: prices && prices.retail},
+          })) :
+          data;
+
+        return res.json(safe);
       } catch (err) {
         logger.error("Product lookup error:", err);
         return res.status(500).json({error: "Server error"});

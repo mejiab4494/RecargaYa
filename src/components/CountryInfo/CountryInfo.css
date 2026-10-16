@@ -1,3 +1,7 @@
+.country-details .country-select {
+    margin-bottom: 1rem;
+}
+
 .country-info {
     max-width: 480px;
     margin: 2rem auto;
@@ -13,6 +17,25 @@
     margin-bottom: 1.5rem;
 }
 
+/* Country picker (shown at /recargas before a country is chosen) */
+.country-details > select {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.country-details > select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Form */
 .topoff-form {
     display: flex;
     flex-direction: column;
@@ -42,6 +65,7 @@
     border-radius: 8px;
     font-size: 1rem;
     background: #fff;
+    box-sizing: border-box;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -52,6 +76,81 @@
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
+.form-group select:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.form-group small {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.form-group > p {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+/* Carrier buttons */
+.operator-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.operator-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: #ffffff;
+    color: #1e293b;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.operator-btn:hover {
+    border-color: #2563eb;
+    background: #f8fafc;
+}
+
+.operator-btn.active {
+    border-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Promotions */
+.promo-badge {
+    font-size: 0.75rem;
+    background: #dcfce7;
+    color: #166534;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+}
+
+.form-group .promo-note {
+    margin-top: 0.25rem;
+    font-size: 0.9rem;
+    color: #166534;
+}
+
+/* Plan details */
+.form-group .plan-description {
+    margin-top: 0.25rem;
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.5;
+}
+
+/* Submit button */
 .topoff-form button[type="submit"] {
     margin-top: 0.5rem;
     padding: 0.75rem 1rem;
@@ -74,6 +173,13 @@
     cursor: not-allowed;
 }
 
+.topoff-form > .plan-description {
+    font-size: 0.9rem;
+    color: #475569;
+    margin: 0;
+}
+
+/* Status messages */
 .form-success {
     color: #15803d;
     font-size: 0.9rem;
@@ -84,4 +190,16 @@
     color: #dc2626;
     font-size: 0.9rem;
     margin-top: -0.5rem;
+}
+
+/* Phones */
+@media (max-width: 480px) {
+    .country-info {
+        margin: 1rem auto;
+        padding: 1rem;
+    }
+
+    .topoff-form {
+        padding: 1.25rem;
+    }
 }

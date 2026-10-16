@@ -1,10 +1,22 @@
-import CountryInfo from "../CountryInfo/CountryInfo";
+import { useNavigate } from "react-router-dom";
+import CountrySearch from "../CountrySearch/CountrySearch";
 
 export default function Recargas() {
-  return (
-    <>
-      <h1>Recargas</h1>
-      <CountryInfo />
-    </>
-  );
+    const navigate = useNavigate();
+
+    const handleCountryChange = (c) => {
+        navigate(`/recargas/${c.code}`);
+    };
+
+    return (
+        <div className="country-info">
+            <div className="country-details">
+                <h2>¿A qué país quieres enviar la recarga?</h2>
+                <CountrySearch
+                    onSelect={handleCountryChange}
+                    placeholder="Buscar País"
+                />
+            </div>
+        </div>
+    );
 }
