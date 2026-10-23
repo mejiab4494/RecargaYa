@@ -1,3 +1,11 @@
+.country-banner {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 16px;
+    margin-bottom: 1.5rem;
+}
+
 .country-details .country-select {
     margin-bottom: 1rem;
 }

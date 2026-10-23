@@ -12,17 +12,74 @@ const dtoneKey = defineSecret("DTONE_API_KEY");
 const dtoneSecret = defineSecret("DTONE_API_SECRET");
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
+const countries = require("i18n-iso-countries");
 
 // Switch to DT One's production host when you go live
 const DTONE_BASE_URL = "https://preprod-dvs-api.dtone.com/v1";
 
-const ISO_ALPHA2_TO_ALPHA3 = {
-  SV: "SLV", // El Salvador
-  GT: "GTM", // Guatemala
-  HN: "HND", // Honduras
-  NI: "NIC", // Nicaragua
-  MX: "MEX", // Mexico
-};
+exports.lookupProducts = onRequest(
+    {secrets: [dtoneKey, dtoneSecret], cors: true},
+    async (req, res) => {
+      const {countryIso, serviceId} = req.query;
+
+      if (!/^[A-Za-z]{2,3}$/.test(countryIso || "")) {
+        return res.status(400).json({error: "Valid countryIso is required"});
+      }
+      if (serviceId && !/^\d+$/.test(serviceId)) {
+        return res.status(400).json({error: "Invalid serviceId"});
+      }
+
+      // Accept alpha-2 (SV) or alpha-3 (SLV)
+      const code = countryIso.toUpperCase();
+      const alpha3 = code.length === 3 ? code : countries.alpha2ToAlpha3(code);
+      if (!alpha3) {
+        return res.status(400).json({error: "Unknown country"});
+      }
+
+      try {
+        const perPage = 100;
+        const all = [];
+
+        // Page through results (capped at 10 pages as a safety limit)
+        for (let page = 1; page <= 10; page++) {
+          const params = new URLSearchParams({
+            country_iso_code: alpha3,
+            per_page: String(perPage),
+            page: String(page),
+          });
+          if (serviceId) params.set("service_id", serviceId);
+
+          const productsRes = await fetch(
+              `${DTONE_BASE_URL}/products?${params}`,
+              {headers: {Authorization: getDtoneAuthHeader()}},
+          );
+
+          if (!productsRes.ok) {
+            logger.error("DT One products failed", {
+              status: productsRes.status,
+            });
+            return res.status(502).json({error: "Product lookup failed"});
+          }
+
+          const batch = await productsRes.json();
+          if (!Array.isArray(batch)) break;
+          all.push(...batch);
+          if (batch.length < perPage) break;
+        }
+
+        // Never send wholesale cost, rates or source amounts to the browser
+        const safe = all.map(({prices, rates, source, ...rest}) => ({
+          ...rest,
+          prices: {retail: prices && prices.retail},
+        }));
+
+        return res.json(safe);
+      } catch (err) {
+        logger.error("Product lookup error:", err);
+        return res.status(500).json({error: "Server error"});
+      }
+    },
+);
 
 /**
  * Builds the HTTP Basic Auth header DT One requires.
@@ -52,14 +109,29 @@ async function getProduct(productId) {
 }
 
 /**
- * Sends the top-up to DT One. Only called after a successful payment.
- * @param {Object} params The top-up details.
- * @param {string} params.externalId Unique id (the Stripe payment id).
+ * Builds the DT One credit party for an order.
+ * If the gift card product wants an email (or another field), this is the
+ * only place to change. Check required_credit_party_identifier_fields on
+ * the product.
+ * @param {Object} m The PaymentIntent metadata.
+ * @return {Object} The credit_party_identifier object.
+ */
+function buildCreditParty(m) {
+  if (m.type === "giftCard") {
+    return {mobile_number: m.recipientContact};
+  }
+  return {mobile_number: m.phoneNumber};
+}
+
+/**
+ * Sends the order to DT One. Only called after a successful payment.
+ * @param {Object} params The order details.
+ * @param {string} params.externalId Unique id (based on the Stripe payment).
  * @param {string} params.productId The DT One product id.
- * @param {string} params.phoneNumber Recipient number in +international form.
+ * @param {Object} params.creditParty The credit_party_identifier object.
  * @return {Promise<string>} The DT One transaction id.
  */
-async function sendTopOff({externalId, productId, phoneNumber}) {
+async function sendTopOff({externalId, productId, creditParty}) {
   const topupRes = await fetch(`${DTONE_BASE_URL}/async/transactions`, {
     method: "POST",
     headers: {
@@ -69,7 +141,7 @@ async function sendTopOff({externalId, productId, phoneNumber}) {
     body: JSON.stringify({
       external_id: externalId,
       product_id: productId,
-      credit_party_identifier: {mobile_number: phoneNumber},
+      credit_party_identifier: creditParty,
       auto_confirm: true,
     }),
   });
@@ -77,8 +149,8 @@ async function sendTopOff({externalId, productId, phoneNumber}) {
   const result = await topupRes.json();
 
   if (!topupRes.ok) {
-    logger.error("DT One topup failed", result);
-    throw new Error(result.message || "Top-up failed");
+    logger.error("DT One order failed", result);
+    throw new Error(result.message || "Order failed");
   }
   return result.id || result.transaction_id;
 }
@@ -91,12 +163,27 @@ exports.createPaymentIntent = onRequest(
       }
 
       const {
-        productId, countryCode, phoneNumber, senderName, senderEmail,
+        type = "topoff",
+        productId,
+        countryCode,
+        phoneNumber,
+        senderName,
+        senderEmail,
+        recipientName,
+        recipientContact,
+        message,
       } = req.body || {};
 
-      if (!productId || !countryCode || !senderEmail ||
-          !/^\+\d{8,15}$/.test(phoneNumber || "")) {
+      const isGift = type === "giftCard";
+
+      if (!productId || !countryCode || !senderEmail) {
         return res.status(400).json({error: "Invalid or missing fields"});
+      }
+      if (!isGift && !/^\+\d{8,15}$/.test(phoneNumber || "")) {
+        return res.status(400).json({error: "Invalid phone number"});
+      }
+      if (isGift && !recipientContact) {
+        return res.status(400).json({error: "Recipient is required"});
       }
 
       try {
@@ -115,9 +202,14 @@ exports.createPaymentIntent = onRequest(
           automatic_payment_methods: {enabled: true},
           receipt_email: senderEmail,
           metadata: {
+            type: isGift ? "giftCard" : "topoff",
             productId: String(productId),
             countryCode,
-            phoneNumber,
+            phoneNumber: phoneNumber || "",
+            recipientName: recipientName || "",
+            recipientContact: recipientContact || "",
+            // Stripe caps metadata values at 500 characters
+            message: (message || "").slice(0, 450),
             senderName: senderName || "",
             senderEmail,
           },
@@ -150,13 +242,15 @@ exports.stripeWebhook = onRequest(
 
       if (event.type === "payment_intent.succeeded") {
         const intent = event.data.object;
+        const m = intent.metadata;
+        const isGift = m.type === "giftCard";
         const order = admin.firestore().collection("orders").doc(intent.id);
 
         // Stripe can deliver an event more than once; create() fails if the
         // document already exists, so each payment is fulfilled only once.
         try {
           await order.create({
-            ...intent.metadata,
+            ...m,
             status: "paid",
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
@@ -166,13 +260,13 @@ exports.stripeWebhook = onRequest(
 
         try {
           const transactionId = await sendTopOff({
-            externalId: `topoff-${intent.id}`,
-            productId: intent.metadata.productId,
-            phoneNumber: intent.metadata.phoneNumber,
+            externalId: `${isGift ? "gift" : "topoff"}-${intent.id}`,
+            productId: m.productId,
+            creditParty: buildCreditParty(m),
           });
           await order.update({status: "submitted", transactionId});
         } catch (err) {
-          logger.error("Top-up failed, refunding", err);
+          logger.error("Order failed, refunding", err);
           await stripe.refunds.create({payment_intent: intent.id});
           await order.update({status: "refunded"});
         }

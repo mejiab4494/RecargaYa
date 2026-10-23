@@ -11,8 +11,7 @@ export default function Header() {
         <ul>
           <li><Link to="/landing">Home</Link></li>
           <li><Link to="/recargas">Recargas</Link></li>
-          <li><a href="#about">About</a></li>
-          <li><a href="#contact">Contact</a></li>
+          <li><Link to="/tarjetaDeRegalo">Tarjeta de Regalo</Link></li>
         </ul>
       </nav>
     </header>
